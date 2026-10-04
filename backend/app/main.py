@@ -24,8 +24,8 @@ Running locally
 3. Set up environment variables:
 
        cp .env.example .env
-       # Then open .env and fill in your Supabase project URL
-       # and service role key.
+       # Then open .env and fill in your Supabase project URL,
+       # service role key, and allowed origins.
 
 4. Start the development server:
 
@@ -41,7 +41,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import profiles
+from app.routers import profiles, health
+from app.core.config import ALLOWED_ORIGINS
 
 app = FastAPI(
     title="Marginly API",
@@ -68,22 +69,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # ── CORS ─────────────────────────────────────────────────────────────────
-# Allow the React dev server to call this API during local development.
-# When deploying, add the live frontend URL (e.g. https://marginly.app)
-# to the allowed_origins list below.
+# Origins come from the ALLOWED_ORIGINS environment variable, parsed in
+# config.py.  In production, set ALLOWED_ORIGINS in the Vercel dashboard
+# → backend project → Settings → Environment Variables to your live
+# frontend URL (e.g. https://marginly.vercel.app).
+# Never use "*" as an origin — only explicit URLs.
 # ─────────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # alternate dev port
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Register routers
+app.include_router(health.router)
 app.include_router(profiles.router)
 
 

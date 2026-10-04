@@ -1,12 +1,13 @@
 """
 Application configuration.
 
-Loads environment variables required for Supabase access.
+Loads environment variables required for Supabase access and CORS.
 These values come from the .env file (see .env.example for the template)
 and must NEVER be hardcoded in source code.
 
-SUPABASE_URL      — your Supabase project URL
+SUPABASE_URL            — your Supabase project URL
 SUPABASE_SERVICE_ROLE_KEY — the service role secret key
+ALLOWED_ORIGINS          — comma-separated list of frontend URLs allowed by CORS
 
 The service role key bypasses Row-Level Security and has full database
 access. It is loaded here once and shared with the Supabase client,
@@ -35,3 +36,14 @@ if not SUPABASE_SERVICE_ROLE_KEY:
         "SUPABASE_SERVICE_ROLE_KEY is not set. "
         "Copy .env.example to .env and fill in your service role key."
     )
+
+# ── CORS origins ─────────────────────────────────────────────────────
+# Comma-separated list in the environment variable, e.g.:
+#   ALLOWED_ORIGINS=https://marginly.vercel.app,http://localhost:5173
+# In production, set this in the Vercel dashboard → backend project →
+# Settings → Environment Variables.
+# ─────────────────────────────────────────────────────────────────────
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+ALLOWED_ORIGINS: list[str] = [
+    origin.strip().rstrip("/") for origin in _raw_origins.split(",") if origin.strip()
+]
