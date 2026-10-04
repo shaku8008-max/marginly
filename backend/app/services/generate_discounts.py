@@ -9,7 +9,7 @@ tested end-to-end.
 """
 
 import random
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 
 def generate_discounts(processor_names: list[str]) -> dict[str, Decimal]:

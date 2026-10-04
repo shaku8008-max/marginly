@@ -48,6 +48,24 @@ def _get_processors() -> list[dict]:
     return result.data
 
 
+def _get_user_discounts(user_id: str) -> dict:
+    """
+    Return {processor_name: discount_percent} already saved for this user.
+    Scoped to the verified user_id, so one user can never read another's discounts.
+    Returns an empty dict if the user has none yet.
+    """
+    result = (
+        supabase.table("discounts")
+        .select("processor_name, discount_percent")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return {
+        row["processor_name"]: float(row["discount_percent"])
+        for row in (result.data or [])
+    }
+
+
 @router.post("/api/comparisons")
 async def create_comparison(profile: BusinessProfileIn, request: Request):
     """
@@ -74,7 +92,11 @@ async def create_comparison(profile: BusinessProfileIn, request: Request):
         new_discounts = generate_discounts(
             [n for n in processor_names if n not in existing_discounts]
         )
-        all_discounts = {**existing_discounts, **new_discounts}
+        # Keep only current processors so stale discounts are never re-sent
+        all_discounts = {
+            n: existing_discounts[n] if n in existing_discounts else new_discounts[n]
+            for n in processor_names
+        }
 
         # Build JSON payloads for the atomic save function
         profile_json = {
@@ -185,7 +207,7 @@ async def get_latest_comparison(request: Request):
         raise
     except Exception as e:
         logger.exception("Unexpected error in GET /api/comparisons/latest")
-        body: dict = {"error": "We couldn't save your comparison. Please try again."}
+        body: dict = {"error": "We couldn't load your comparison. Please try again."}
         if os.environ.get("DEBUG_ERRORS") == "1":
             body["debug"] = f"{type(e).__name__}: {e}"
         return JSONResponse(status_code=500, content=body)
