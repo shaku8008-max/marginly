@@ -35,6 +35,12 @@ def calculate_true_costs(
       { processor_name, calculated_cost (Decimal, 2dp), rank (int),
         breakdown: { base_cost, chargeback_cost, fx_cost } }
     """
+    # --- Defensive Decimal conversion (prevents float/Decimal mixing) ---
+    monthly_volume = Decimal(str(monthly_volume))
+    avg_transaction = Decimal(str(avg_transaction))
+    international_percent = Decimal(str(international_percent))
+    industry_multiplier = Decimal(str(industry_multiplier))
+
     # --- Transaction count ---
     # Guard against zero avg_transaction to avoid division by zero.
     transactions = (
@@ -49,7 +55,7 @@ def calculate_true_costs(
         annual_chargebacks = DEFAULT_ANNUAL_CHARGEBACKS
         used_default = True
     else:
-        annual_chargebacks = Decimal(chargebacks_last_year)
+        annual_chargebacks = Decimal(str(chargebacks_last_year))
         used_default = False
 
     results = []
