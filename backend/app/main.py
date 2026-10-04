@@ -41,7 +41,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import profiles, health
+from app.routers import profiles, health, comparisons
 from app.core.config import ALLOWED_ORIGINS
 
 app = FastAPI(
@@ -85,7 +85,8 @@ app.add_middleware(
 
 # Register routers
 app.include_router(health.router)
-app.include_router(profiles.router)
+app.include_router(comparisons.router)
+app.include_router(profiles.router)  # legacy — the app now saves through /api/comparisons
 
 
 @app.get("/")

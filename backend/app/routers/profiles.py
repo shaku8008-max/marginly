@@ -1,17 +1,14 @@
 """
 Business profile router.
 
-Handles POST /api/profile — the first endpoint that proves the full
+Handles POST /api/profile — the first endpoint that proved the full
 chain works: token verification → service-role database insert →
 returning the saved row as JSON.
 
-Every protected endpoint in this app follows the same pattern:
-1. Call verify_user() to confirm the request is from a real logged-in user.
-2. Validate the request body (FastAPI + Pydantic handle this automatically).
-3. Use the Supabase service-role client to read/write data on the user's behalf.
-4. Return a clear JSON response (success or error).
-
-This router is registered in main.py under the /api prefix.
+NOTE: This endpoint is now superseded by POST /api/comparisons, which
+saves the profile, results, and discounts in one atomic transaction.
+It is kept in place for backward compatibility but new code should use
+/api/comparisons.
 """
 
 from fastapi import APIRouter, HTTPException, Request

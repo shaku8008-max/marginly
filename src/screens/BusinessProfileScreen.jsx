@@ -17,7 +17,7 @@ import industries from "../data/industries";
 import industryThemes from "../data/industryThemes";
 import validationLimits from "../utils/validationLimits";
 
-export default function BusinessProfileScreen({ formData, setFormData, onNext, onBack }) {
+export default function BusinessProfileScreen({ formData, setFormData, onNext, onBack, comparison }) {
   const [errors, setErrors] = useState({});
 
   const handleChange = (field) => (e) => {
@@ -62,7 +62,28 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+        {/* Welcome-back card — shown when the user has a saved comparison */}
+        {comparison && (
+          <Card className="w-full">
+            <div className="text-center p-2">
+              <h3 className="text-lg font-bold text-navy-900 mb-1">Welcome back</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                You have a saved comparison. Would you like to view it or start a new one?
+              </p>
+              <div className="flex gap-3">
+                <Button variant="primary" onClick={onNext} className="flex-1">
+                  View my comparison
+                </Button>
+                <Button variant="secondary" onClick={() => {}} className="flex-1">
+                  Start a new one
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+      <Card className="w-full">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-navy-900 mb-2">
             Business profile
@@ -189,6 +210,7 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
           </Button>
         </div>
       </Card>
+      </div>
     </div>
   );
 }

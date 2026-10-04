@@ -14,7 +14,7 @@ import FormField from "../components/FormField";
 import Card from "../components/Card";
 import validationLimits from "../utils/validationLimits";
 
-export default function TransactionDetailsScreen({ formData, setFormData, onNext, onBack }) {
+export default function TransactionDetailsScreen({ formData, setFormData, onSubmit, onBack, comparisonStatus, comparisonError }) {
   const [errors, setErrors] = useState({});
 
   const handleChange = (field) => (e) => {
@@ -48,7 +48,8 @@ export default function TransactionDetailsScreen({ formData, setFormData, onNext
       return;
     }
 
-    onNext();
+    // Validation passed — call the submit handler (saves to backend)
+    onSubmit();
   };
 
   return (
@@ -64,6 +65,13 @@ export default function TransactionDetailsScreen({ formData, setFormData, onNext
         </div>
 
         <div className="space-y-4">
+          {/* Backend error banner */}
+          {comparisonError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-600">{comparisonError}</p>
+            </div>
+          )}
+
           <FormField
             label="International sales percentage"
             id="internationalPercentage"
@@ -92,8 +100,8 @@ export default function TransactionDetailsScreen({ formData, setFormData, onNext
           <Button variant="secondary" onClick={onBack} className="flex-1">
             Back
           </Button>
-          <Button variant="primary" onClick={handleNext} className="flex-1">
-            Next
+          <Button variant="primary" onClick={handleNext} loading={comparisonStatus === "loading"} className="flex-1">
+            {comparisonStatus === "loading" ? "Saving…" : "See results"}
           </Button>
         </div>
       </Card>

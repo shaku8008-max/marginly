@@ -12,6 +12,7 @@ NOTE: The Field constraints below mirror:
   Keep all three in sync when adjusting limits.
 """
 
+from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -35,9 +36,10 @@ class BusinessProfileIn(BaseModel):
         ..., ge=0, le=100,
         description="Percentage of sales from international customers (0–100)",
     )
-    chargebacks_last_year: int = Field(
-        0, ge=0, le=10_000,
-        description="Number of chargeback disputes in the last year (0–10,000)",
+    # null allowed — the calculation will use a default when the user skips this field
+    chargebacks_last_year: Optional[int] = Field(
+        None, ge=0, le=10_000,
+        description="Number of chargeback disputes in the last year (0–10,000, or null if not provided)",
     )
     industry: str = Field(
         ..., min_length=1,

@@ -1,9 +1,9 @@
 /**
  * Main App component for Marginly.
- * Handles routing, lifts state up for form data and authenticated user,
- * and protects routes that require a logged-in user.
+ * Handles routing, lifts state up for form data, authenticated user,
+ * and saved comparison data.  Protects routes that require login.
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import LoginScreen from "./screens/LoginScreen";
 import BusinessProfileScreen from "./screens/BusinessProfileScreen";
@@ -13,6 +13,7 @@ import DiscountsScreen from "./screens/DiscountsScreen";
 import { mockProcessors } from "./data/mockProcessors";
 import { generateRandomDiscounts } from "./utils/generateDiscounts";
 import supabase from "./services/supabaseClient";
+import { apiFetch } from "./services/api";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -30,10 +31,27 @@ function AppContent() {
     industry: "Retail",
   });
 
-  // Generate random discount percentages once per session and store in state.
-  // This is stored here (not inside DiscountsScreen) so the values stay stable
-  // across re-renders and back-and-forth navigation between Results and Discounts.
+  // --- Comparison state (saved to / loaded from the backend) ---
+  const [comparison, setComparison] = useState(null);
+  const [comparisonStatus, setComparisonStatus] = useState("idle"); // idle | loading | error
+  const [comparisonError, setComparisonError] = useState("");
+
+  // Generate random discount percentages once per session (local fallback only)
   const [processorDiscounts] = useState(() => generateRandomDiscounts(mockProcessors));
+
+  // --- Fetch the user's latest saved comparison ---
+  const fetchLatestComparison = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/comparisons/latest");
+      if (data.comparison) {
+        setComparison(data.comparison);
+        return data.comparison;
+      }
+    } catch {
+      // Silent fail — the user just won't see a welcome-back banner
+    }
+    return null;
+  }, []);
 
   // List of routes that require an authenticated user
   const protectedPaths = ["/business-profile", "/transaction-details", "/results", "/discounts"];
@@ -45,18 +63,37 @@ function AppContent() {
     return <Navigate to="/" replace />;
   }
 
-  const handleLogin = (userData) => {
-    // Store the Supabase user object (contains user.id, user.email, etc.)
-    // so child screens can use user.id for saving data to Supabase.
+  const handleLogin = async (userData) => {
     setUser(userData);
+    // After login, try to load the latest comparison for the welcome-back banner
+    const latest = await fetchLatestComparison();
+    // Pre-fill form data from the latest comparison so the welcome-back card can use it
+    if (latest?.profile) {
+      setFormData({
+        monthlyCardVolume: latest.profile.monthly_volume || "",
+        averageTransaction: latest.profile.avg_transaction || "",
+        inPersonSplit: latest.profile.in_person_percent || "",
+        internationalPercentage: latest.profile.international_percent || "",
+        chargebacks: latest.profile.chargebacks_last_year || "",
+        industry: latest.profile.industry || "Retail",
+      });
+    }
     navigate("/business-profile");
   };
 
   // signOut clears the local session and revokes the refresh token on the server.
-  // After calling this, supabase.auth.getSession() will return null.
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setComparison(null);
+    setFormData({
+      monthlyCardVolume: "",
+      averageTransaction: "",
+      inPersonSplit: "",
+      internationalPercentage: "",
+      chargebacks: "",
+      industry: "Retail",
+    });
     navigate("/");
   };
 
@@ -68,8 +105,35 @@ function AppContent() {
     navigate("/business-profile");
   };
 
-  const handleTransactionDetailsNext = () => {
-    navigate("/results");
+  // Called when the user clicks "Next" on the TransactionDetails screen.
+  // Sends the profile to the backend, saves the comparison, then navigates.
+  const handleTransactionDetailsSubmit = async () => {
+    setComparisonStatus("loading");
+    setComparisonError("");
+
+    const payload = {
+      monthly_volume: parseFloat(formData.monthlyCardVolume),
+      avg_transaction: parseFloat(formData.averageTransaction),
+      in_person_percent: parseFloat(formData.inPersonSplit),
+      international_percent: parseFloat(formData.internationalPercentage),
+      chargebacks_last_year: formData.chargebacks
+        ? parseInt(formData.chargebacks, 10)
+        : null,
+      industry: formData.industry,
+    };
+
+    try {
+      const data = await apiFetch("/api/comparisons", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setComparison(data);
+      setComparisonStatus("idle");
+      navigate("/results");
+    } catch (err) {
+      setComparisonStatus("error");
+      setComparisonError(err.message || "We couldn't reach the server. Please try again.");
+    }
   };
 
   const handleRestart = () => {
@@ -88,6 +152,7 @@ function AppContent() {
             setFormData={setFormData}
             onNext={handleBusinessProfileNext}
             onBack={() => navigate("/")}
+            comparison={comparison}
           />
         }
       />
@@ -98,13 +163,13 @@ function AppContent() {
             user={user}
             formData={formData}
             setFormData={setFormData}
-            onNext={handleTransactionDetailsNext}
+            onSubmit={handleTransactionDetailsSubmit}
             onBack={handleTransactionDetailsBack}
+            comparisonStatus={comparisonStatus}
+            comparisonError={comparisonError}
           />
         }
       />
-      {/* Props pattern: formData and processorDiscounts are lifted to App.jsx
-          and passed down as props to child screens — the same pattern used for formData */}
       <Route
         path="/results"
         element={
@@ -113,6 +178,8 @@ function AppContent() {
             formData={formData}
             processors={mockProcessors}
             processorDiscounts={processorDiscounts}
+            comparison={comparison}
+            fetchLatestComparison={fetchLatestComparison}
             onRestart={handleRestart}
             onSeeDiscounts={() => navigate("/discounts")}
           />
@@ -126,6 +193,8 @@ function AppContent() {
             formData={formData}
             processors={mockProcessors}
             processorDiscounts={processorDiscounts}
+            comparison={comparison}
+            fetchLatestComparison={fetchLatestComparison}
             onBack={() => navigate("/results")}
             onLogout={handleLogout}
           />

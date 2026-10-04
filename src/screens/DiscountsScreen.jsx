@@ -1,16 +1,19 @@
 /**
  * Discounts screen for Marginly.
  * Shows industry-specific affiliate discounts for each processor,
- * with costs recalculated using the same formData already collected.
+ * with costs from the saved comparison or recalculated locally.
  *
  * Props:
  * - user: object - authenticated Supabase user (contains user.id)
  * - formData: object - business payment data from App.jsx
  * - processors: array - processor rate structures
- * - processorDiscounts: object - map of processor name to discount % (generated once in App.jsx)
+ * - processorDiscounts: object - map of processor name to discount % (local fallback)
+ * - comparison: object - saved comparison from backend (or null)
+ * - fetchLatestComparison: function - fetch latest if null (for page refresh)
  * - onBack: function - navigate back to results screen
  * - onLogout: function - sign out and return to login screen
  */
+import { useEffect, useState } from "react";
 import Button from "../components/Button";
 import SpotlightCard from "../components/Card";
 import { CardContent, CardHeader } from "../components/ui/card";
@@ -20,36 +23,65 @@ import industries from "../data/industries";
 import industryThemes from "../data/industryThemes";
 import { Tag, ArrowLeft, TrendingDown, Check } from "lucide-react";
 
-export default function DiscountsScreen({ formData, processors, processorDiscounts, onBack, onLogout }) {
-  // Recalculate each processor's true monthly cost using the same formData and
-  // industry multipliers — this is the same calculation as ResultsScreen, not a
-  // fresh one. The discount is applied as a separate step on top.
+export default function DiscountsScreen({ formData, processors, processorDiscounts, comparison, fetchLatestComparison, onBack, onLogout }) {
+  const [loading, setLoading] = useState(!comparison);
+
+  // Fetch latest comparison if not in state (e.g. after page refresh)
+  useEffect(() => {
+    if (comparison || !fetchLatestComparison) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try { await fetchLatestComparison(); } catch { /* silent */ }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [comparison, fetchLatestComparison]);
+
   // Look up the selected industry's theme for tinting cards
   const selectedIndustry = industries.find(i => i.name === formData.industry) || industries[0];
   const theme = industryThemes[selectedIndustry.themeKey] || industryThemes.neutral;
 
+  // Build processor data: use comparison results if available, otherwise local calc
+  const comparisonDiscounts = comparison?.discounts || {};
+  const comparisonResultsByName = {};
+  if (comparison?.results) {
+    for (const r of comparison.results) comparisonResultsByName[r.processor_name] = r;
+  }
+
   const processorsWithDiscounts = processors.map((processor) => {
-    const trueMonthly = calculateTrueCost(formData, processor, industryMultipliers).totalCost;
-    const discountPercent = processorDiscounts[processor.name] || 0;
-    // Discounted cost = true monthly cost × (1 - discount % / 100)
+    // Use backend cost if available, otherwise compute locally
+    const backend = comparisonResultsByName[processor.name];
+    const trueMonthly = backend
+      ? parseFloat(backend.calculated_cost)
+      : calculateTrueCost(formData, processor, industryMultipliers).totalCost;
+
+    // Use backend discount if available, otherwise local fallback
+    const discountPercent = comparisonDiscounts[processor.name]
+      ? parseFloat(comparisonDiscounts[processor.name])
+      : (processorDiscounts[processor.name] || 0);
+
     const discountedMonthly = Math.round(trueMonthly * (1 - discountPercent / 100) * 100) / 100;
     const monthlySavings = Math.round((trueMonthly - discountedMonthly) * 100) / 100;
     const annualSavings = Math.round(monthlySavings * 12 * 100) / 100;
 
-    return {
-      ...processor,
-      trueMonthly,
-      discountPercent,
-      discountedMonthly,
-      monthlySavings,
-      annualSavings,
-    };
+    return { ...processor, trueMonthly, discountPercent, discountedMonthly, monthlySavings, annualSavings };
   });
 
   // Sort by discounted cost so the best deal appears first
   const sortedProcessors = [...processorsWithDiscounts].sort(
     (a, b) => a.discountedMonthly - b.discountedMonthly
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <SpotlightCard className="w-full max-w-md text-center">
+          <p className="text-gray-500">Loading your discounts…</p>
+        </SpotlightCard>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">

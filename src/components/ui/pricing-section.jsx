@@ -7,7 +7,7 @@ import { useRef, useState, useMemo } from "react";
 import { calculateTrueCost, getExplanation } from "../../utils/calculateTrueCost";
 import { industryMultipliers, ratesLastVerified } from "../../data/mockProcessors";
 
-export default function PricingSection({ processors, formData, onRestart, onSeeDiscounts }) {
+export default function PricingSection({ processors, formData, comparison, onRestart, onSeeDiscounts }) {
   const pricingRef = useRef(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -24,9 +24,33 @@ export default function PricingSection({ processors, formData, onRestart, onSeeD
     internationalPercentage: String(sliderInternational),
   }), [formData, sliderVolume, sliderInternational]);
 
-  // Calculate true costs for each processor, passing industry multipliers
-  // calculateTrueCost now returns { totalCost, usedDefaultChargebacks }
+  // Calculate true costs for each processor.
+  // If a saved comparison exists from the backend, use its results (the
+  // authoritative calculation).  The "what if" sliders below still work
+  // for local exploration, but the saved result is the one stored in the
+  // database.
+  // When there is no comparison (e.g. sliders moved), fall back to the
+  // client-side calculation which mirrors the backend formula.
+  const comparisonResultsByName = {};
+  if (comparison?.results) {
+    for (const r of comparison.results) {
+      comparisonResultsByName[r.processor_name] = r;
+    }
+  }
+  const useBackendData = comparison?.results && sliderVolume === parseFloat(formData.monthlyCardVolume || 0)
+    && sliderInternational === parseFloat(formData.internationalPercentage || 0);
+
   const processorsWithCosts = processors.map((processor) => {
+    if (useBackendData && comparisonResultsByName[processor.name]) {
+      const backend = comparisonResultsByName[processor.name];
+      return {
+        ...processor,
+        estimatedMonthly: parseFloat(backend.calculated_cost),
+        usedDefaultChargebacks: comparison.used_default_chargebacks || false,
+        explanation: getExplanation(processor, liveFormData, industryMultipliers),
+      };
+    }
+    // Fallback: client-side calculation (same formula as the backend)
     const result = calculateTrueCost(liveFormData, processor, industryMultipliers);
     return {
       ...processor,

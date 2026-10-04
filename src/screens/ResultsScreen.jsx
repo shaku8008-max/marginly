@@ -1,8 +1,51 @@
+import { useEffect, useState } from "react";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import PricingSection from "../components/ui/pricing-section";
 
-export default function ResultsScreen({ formData, processors, processorDiscounts, onRestart, onSeeDiscounts }) {
+export default function ResultsScreen({ formData, processors, processorDiscounts, comparison, fetchLatestComparison, onRestart, onSeeDiscounts }) {
+  const [loading, setLoading] = useState(!comparison);
+  const [error, setError] = useState("");
+
+  // If the user lands here after a page refresh (no comparison in state),
+  // fetch the latest from the backend.
+  useEffect(() => {
+    if (comparison || !fetchLatestComparison) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        await fetchLatestComparison();
+      } catch {
+        if (!cancelled) setError("We couldn't reach the server. Please try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [comparison, fetchLatestComparison]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md text-center">
+          <p className="text-gray-500">Loading your comparison…</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error && !comparison) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button variant="primary" onClick={onRestart}>Start over</Button>
+        </Card>
+      </div>
+    );
+  }
+
   const isValid = formData.monthlyCardVolume && formData.averageTransaction && formData.inPersonSplit && formData.internationalPercentage;
 
   const missingFields = [];
@@ -41,5 +84,5 @@ export default function ResultsScreen({ formData, processors, processorDiscounts
     );
   }
 
-  return <PricingSection processors={processors} formData={formData} onRestart={onRestart} onSeeDiscounts={onSeeDiscounts} />;
+  return <PricingSection processors={processors} formData={formData} comparison={comparison} onRestart={onRestart} onSeeDiscounts={onSeeDiscounts} />;
 }
