@@ -6,29 +6,26 @@
  * anything sensitive (like the service role key) must stay server-side.
  *
  * API_BASE_URL is read from the VITE_API_URL environment variable.
- * In production, set it in the Vercel dashboard → frontend project →
- * Settings → Environment Variables to your live backend URL
- * (e.g. https://marginly-api.vercel.app).
+ *
+ * In production on Vercel, the frontend and backend share one domain:
+ * /api/* is rewritten to the backend service automatically.  So we use
+ * an empty base URL (same-origin).  You do NOT need to set VITE_API_URL
+ * in the Vercel dashboard for the production deployment.
+ *
+ * In local development the two services run on different ports, so we
+ * fall back to http://localhost:8000.
  */
 
 import supabase from "./supabaseClient";
 
 // ── Base URL ──────────────────────────────────────────────────────────
-// VITE_API_URL is baked in at build time.  In dev mode we fall back to
-// localhost:8000 so the app works out of the box.  In a production build
-// the variable must be set — otherwise we throw immediately so the
-// developer sees a clear message instead of silent CORS failures.
+// Production: empty string → requests go to the same origin, and Vercel
+//   rewrites /api/* to the backend service.
+// Development: fall back to http://localhost:8000 (the local backend).
 // ──────────────────────────────────────────────────────────────────────
 let API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
-if (!API_BASE_URL && !import.meta.env.DEV) {
-  throw new Error(
-    "VITE_API_URL is not set. Add it in your Vercel dashboard or local .env file."
-  );
-}
-
-// Dev-only fallback
-if (!API_BASE_URL) {
+if (!API_BASE_URL && import.meta.env.DEV) {
   API_BASE_URL = "http://localhost:8000";
 }
 
