@@ -3,6 +3,3 @@ uvicorn[standard]
 python-dotenv
 supabase
 pydantic
-
-  cd /Users/abrar/test/marginly/backend
-  pip freeze | grep -iE "^(fastapi|uvicorn|python-dotenv|supabase|pydantic)=="
