@@ -13,6 +13,8 @@
  * - helper: string - helper text to display (optional)
  * - disabled: boolean - disables the input when true
  * - required: boolean - shows required indicator when true
+ * - options: array of { value, label } - when provided, Input renders a
+ *   native <select> instead of a text input (e.g. industry dropdown)
  */
 import Input from "./Input";
 
@@ -27,6 +29,7 @@ export default function FormField({
   helper = "",
   disabled = false,
   required = false,
+  options,
 }) {
   return (
     <div className="mb-4">
@@ -46,6 +49,7 @@ export default function FormField({
         placeholder={placeholder}
         error={!!error}
         disabled={disabled}
+        options={options}
       />
       
       {error && (

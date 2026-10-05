@@ -25,12 +25,30 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
+  // --- Industry dropdown options (built from the single industries.js list) ---
+  const industryOptions = [
+    { value: "", label: "Select your industry" },
+    ...industries.map((ind) => ({ value: ind.name, label: ind.name })),
+  ];
+
+  // Look up the selected industry; fall back to null if the stored name
+  // doesn't match any entry (e.g. stale saved data).
+  const selectedIndustry = industries.find((ind) => ind.name === formData.industry) || null;
+
+  // Tone for the profile card: the industry's themeKey, or neutral when none selected.
+  const tone = selectedIndustry ? selectedIndustry.themeKey : "neutral";
+  const theme = selectedIndustry ? industryThemes[selectedIndustry.themeKey] : industryThemes.neutral;
+
   const handleNext = () => {
     const newErrors = {};
     const vol = parseFloat(formData.monthlyCardVolume);
     const avg = parseFloat(formData.averageTransaction);
     const inPerson = parseFloat(formData.inPersonSplit);
     const { monthlyVolume, avgTransaction, inPersonPercent } = validationLimits;
+
+    if (!selectedIndustry) {
+      newErrors.industry = "Please choose your industry";
+    }
 
     if (!formData.monthlyCardVolume?.trim()) {
       newErrors.monthlyCardVolume = "Please enter your monthly card volume";
@@ -63,7 +81,7 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4">
-        {/* Welcome-back card — shown when the user has a saved comparison */}
+        {/* Welcome-back card — stays neutral; only the profile card is tinted */}
         {comparison && (
           <Card className="w-full">
             <div className="text-center p-2">
@@ -83,7 +101,11 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
           </Card>
         )}
 
-      <Card className="w-full">
+      {/* Main profile card — tone changes with the selected industry */}
+      <Card
+        tone={tone}
+        className="w-full p-6 transition-colors duration-300"
+      >
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-navy-900 mb-2">
             Business profile
@@ -94,75 +116,31 @@ export default function BusinessProfileScreen({ formData, setFormData, onNext, o
         </div>
 
         <div className="space-y-4">
-          {/* Industry selector — responsive grid of tinted cards */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Industry
-            </label>
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
-              role="radiogroup"
-              aria-label="Select your industry"
-            >
-              {industries.map((ind) => {
-                const isSelected = formData.industry === ind.name;
-                const theme = industryThemes[ind.themeKey] || industryThemes.neutral;
+          {/* Industry dropdown — replaces the previous card grid */}
+          <FormField
+            label="Industry"
+            id="industry"
+            value={selectedIndustry ? selectedIndustry.name : ""}
+            onChange={handleChange("industry")}
+            error={errors.industry}
+            helper="Chargeback risk varies by industry"
+            options={industryOptions}
+            required
+          />
 
-                return (
-                  <button
-                    key={ind.name}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    tabIndex={0}
-                    onClick={() =>
-                      setFormData((prev) => ({ ...prev, industry: ind.name }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setFormData((prev) => ({ ...prev, industry: ind.name }));
-                      }
-                    }}
-                    className={
-                      "text-left p-3 rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 " +
-                      theme.bg + " " +
-                      (isSelected
-                        ? theme.ring + " ring-2"
-                        : theme.border + " hover:shadow-sm")
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 leading-tight">
-                          {ind.name}
-                        </p>
-                        <p className="text-xs text-slate-600 mt-0.5 leading-snug">
-                          {ind.description}
-                        </p>
-                      </div>
-                      <span
-                        className={
-                          "shrink-0 mt-0.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium " +
-                          theme.pill
-                        }
-                      >
-                        {ind.chargebackMultiplier}×
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <p className="text-xs font-medium mt-1.5 text-slate-700">
-                        ✓ Selected
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
+          {/* Industry pill + description — updates immediately on selection */}
+          {selectedIndustry && (
+            <div className="flex items-center gap-2 -mt-2 mb-2">
+              <span
+                className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${theme.pill}`}
+              >
+                {selectedIndustry.name}
+              </span>
+              <span className="text-sm text-gray-500">
+                {selectedIndustry.description}
+              </span>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Chargeback risk varies by industry
-            </p>
-          </div>
+          )}
 
           <FormField
             label="Monthly card volume"
