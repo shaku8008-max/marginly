@@ -49,11 +49,7 @@ def _get_processors() -> list[dict]:
 
 
 def _get_user_discounts(user_id: str) -> dict:
-    """
-    Return {processor_name: discount_percent} already saved for this user.
-    Scoped to the verified user_id, so one user can never read another's discounts.
-    Returns an empty dict if the user has none yet.
-    """
+    """Return {processor_name: discount_percent} already saved for this user."""
     result = (
         supabase.table("discounts")
         .select("processor_name, discount_percent")
@@ -64,6 +60,7 @@ def _get_user_discounts(user_id: str) -> dict:
         row["processor_name"]: float(row["discount_percent"])
         for row in (result.data or [])
     }
+
 
 
 @router.post("/api/comparisons")
